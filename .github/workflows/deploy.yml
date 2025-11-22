@@ -28,7 +28,7 @@ jobs:
           node-version: 18
 
       - name: Install dependencies
-        run: npm install
+        run: npm ci
 
       - name: SonarCloud Scan
         uses: SonarSource/sonarcloud-github-action@master
@@ -43,6 +43,9 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: npm ci
 
       - name: Run Trivy FS scan
         uses: aquasecurity/trivy-action@master
@@ -66,7 +69,7 @@ jobs:
           node-version: '18'
 
       - name: Install dependencies
-        run: npm install
+        run: npm ci
 
       - name: Run Tests
         run: npm test
@@ -91,16 +94,16 @@ jobs:
 
       - name: Build Docker image
         run: |
-          docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/app:${{ github.run_number }} .
+          docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/items-app:${{ github.run_number }} .
 
       - name: Scan Docker Image with Trivy
         uses: aquasecurity/trivy-action@master
         with:
-          image-ref: ${{ secrets.DOCKERHUB_USERNAME }}/app:${{ github.run_number }}
+          image-ref: ${{ secrets.DOCKERHUB_USERNAME }}/items-app:${{ github.run_number }}
           severity: 'HIGH,CRITICAL'
           ignore-unfixed: true
           exit-code: 1
 
       - name: Push Docker Image to Docker Hub
         run: |
-          docker push ${{ secrets.DOCKERHUB_USERNAME }}/app:${{ github.run_number }}
+          docker push ${{ secrets.DOCKERHUB_USERNAME }}/items-app:${{ github.run_number }}
