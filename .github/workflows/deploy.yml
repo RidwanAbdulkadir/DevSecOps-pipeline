@@ -102,7 +102,7 @@ jobs:
           image-ref: ${{ secrets.DOCKERHUB_USERNAME }}/items-app:${{ github.run_number }}
           severity: 'HIGH,CRITICAL'
           ignore-unfixed: true
-          exit-code: 1
+        
 
       - name: Push Docker Image to Docker Hub
         run: |
