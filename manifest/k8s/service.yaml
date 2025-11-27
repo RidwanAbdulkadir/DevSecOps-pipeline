@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: items-app
+  namespace: items-app
+spec:
+  type: ClusterIP
+  selector:
+    app: items-app
+  ports:
+    - port: 80
+      targetPort: 3000

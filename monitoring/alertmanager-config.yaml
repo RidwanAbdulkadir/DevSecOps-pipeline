@@ -1,0 +1,33 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: alertmanager-config
+  namespace: monitoring
+data:
+  alertmanager.yml: |
+    global:
+      smtp_smarthost: 'smtp.gmail.com:587'
+      smtp_from: 'olayinkaridwan20@gmail.com'
+      smtp_auth_username: ${SMTP_USER}
+      smtp_auth_password: ${SMTP_PASSWORD}
+
+    route:
+      # Default receiver sends to all channels
+      receiver: 'team-alerts'
+      # Multiple receivers
+      receivers:
+        - 'team-alerts'
+        - 'whatsapp-alerts'
+
+    receivers:
+      - name: 'team-alerts'
+        slack_configs:
+          - api_url: ${SLACK_WEBHOOK}
+            channel: '#app'
+        email_configs:
+          - to: 'olayinkaridwan20@gmail.com'
+            send_resolved: true
+
+      - name: 'whatsapp-alerts'
+        webhook_configs:
+          - url: 'https://api.callmebot.com/whatsapp.php?phone=${WHATSAPP_PHONE}&text={{ .CommonAnnotations.summary }}&apikey=${CALLMEBOT_TOKEN}'
