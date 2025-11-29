@@ -1,37 +1,50 @@
 provider "aws" {
-  region = "us-east-1"  # Set your preferred AWS region
+  region = "us-east-1"
 }
 
-# Create an EC2 instance
-resource "aws_instance" "my_ec2" {
-  ami           = var.ami_id         # AMI ID as a variable
-  instance_type = var.instance_type  # Instance type as a variable
-  #count = var.instance_count
-  key_name = "Ridwan"
+#############################
+# EC2 INSTANCE (optional)
+#############################
 
+resource "aws_instance" "my_ec2" {
+  ami           = var.ami_id
+  instance_type = var.instance_type
+  key_name      = "main.02"
 
   tags = {
     Name = "DevSecOps"
   }
 }
 
-# Create an Elastic IP
 resource "aws_eip" "my_eip" {
-  instance = aws_instance.my_ec2.id  # Attach EIP to the EC2 instance
+  instance = aws_instance.my_ec2.id
 }
 
+#############################
+# VPC + SUBNET DISCOVERY
+# Using DEFAULT VPC for testing (not recommended for prod)
+#############################
 
-# VPC (simple default VPC for testing)
 data "aws_vpc" "default" {
   default = true
 }
 
-data "aws_subnets" "default" {
+# Only select subnets in supported AZs for EKS control plane
+data "aws_subnets" "eks_private" {
   filter {
     name   = "vpc-id"
     values = [data.aws_vpc.default.id]
   }
+
+  filter {
+    name   = "availability-zone"
+    values = ["us-east-1a", "us-east-1b", "us-east-1c"] # EKS-supported AZs
+  }
 }
+
+#############################
+# IAM ROLES
+#############################
 
 # EKS Cluster Role
 resource "aws_iam_role" "eks_role" {
@@ -54,21 +67,17 @@ resource "aws_iam_role_policy_attachment" "eks_cluster_policy" {
   policy_arn = "arn:aws:iam::aws:policy/AmazonEKSClusterPolicy"
 }
 
-# EKS Cluster
+#############################
+# EKS CLUSTER
+#############################
+
 resource "aws_eks_cluster" "eks" {
   name     = "monitoring-cluster"
   role_arn = aws_iam_role.eks_role.arn
   version  = "1.29"
 
   vpc_config {
-    subnet_ids = [
-  "subnet-0b129e33cfee52706", # us-east-1a
-  "subnet-078161dc0eab21b77", # us-east-1b
-  "subnet-007462534c7fef10b", # us-east-1c
-  "subnet-09f1d3ac3b09889d7", # us-east-1d
-  "subnet-056db44779f734b63"  # us-east-1f
-    ]
-
+    subnet_ids = data.aws_subnets.eks_private.ids
   }
 
   depends_on = [
@@ -80,7 +89,10 @@ data "aws_eks_cluster_auth" "eks" {
   name = aws_eks_cluster.eks.name
 }
 
-# Node group IAM role
+#############################
+# NODE GROUP IAM ROLE
+#############################
+
 resource "aws_iam_role" "node_role" {
   name = "eks-node-role"
 
@@ -102,22 +114,27 @@ resource "aws_iam_role_policy_attachment" "node_policies" {
     "arn:aws:iam::aws:policy/AmazonEKS_CNI_Policy",
     "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly"
   ])
+
   role       = aws_iam_role.node_role.name
   policy_arn = each.value
 }
 
-# Node group
+#############################
+# NODE GROUP
+#############################
+
 resource "aws_eks_node_group" "default" {
   cluster_name    = aws_eks_cluster.eks.name
   node_group_name = "default"
   node_role_arn   = aws_iam_role.node_role.arn
-  subnet_ids      = data.aws_subnets.default.ids
-  instance_types  = ["t3.small"]
+
+  subnet_ids     = data.aws_subnets.eks_private.ids
+  instance_types = ["t3.medium"]
 
   scaling_config {
-    desired_size = 1
-    max_size     = 2
-    min_size     = 1
+    desired_size = 2
+    max_size     = 3
+    min_size     = 2
   }
 
   depends_on = [
